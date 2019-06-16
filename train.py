@@ -16,7 +16,7 @@ import models
 
 '''
 
-$ python train.py -o "pretrained" -s 10 -n 100 
+$ python train.py -o "pretrained"
 
 '''
 
