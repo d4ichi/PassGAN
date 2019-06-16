@@ -34,6 +34,8 @@ python sample.py \
 
 ### Training your own models
 
+You can downlaod sample datasets from release page, or can generate sample rockyou dataset by yourself with codes under `bin`.
+
 Training a model on a large dataset (100MB+) can take several hours on a GTX 1080.
 
 ```bash
@@ -46,6 +48,7 @@ curl -L -o data/train.txt https://github.com/d4ichi/PassGAN/releases/download/da
 # uses the default hyperparameters from the paper
 python train.py --output-dir output --training-data data/train.txt
 ```
+
 
 You are encouraged to train using your own password leaks and datasets. Some great places to find those include:
 
