@@ -34,7 +34,7 @@ python sample.py \
 
 ### Training your own models
 
-You can downlaod sample datasets from release page, or can generate sample rockyou dataset by yourself with codes under `bin`.
+You can downlaod sample datasets from release page, or generate sample rockyou dataset by yourself with codes under `bin`.
 
 Training a model on a large dataset (100MB+) can take several hours on a GTX 1080.
 
