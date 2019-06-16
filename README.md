@@ -1,28 +1,33 @@
 # PassGAN
 
-This repository contains code for the [_PassGAN: A Deep Learning Approach for Password Guessing_](https://arxiv.org/abs/1709.00440) paper. 
+This repository contains TensorFlow 1.13 code for the [_PassGAN: A Deep Learning Approach for Password Guessing_](https://arxiv.org/abs/1709.00440) paper. 
 
-The model from PassGAN is taken from [_Improved Training of Wasserstein GANs_](https://arxiv.org/abs/1704.00028) and it is assumed that the authors of PassGAN used the [improved_wgan_training](https://github.com/igul222/improved_wgan_training) tensorflow implementation in their work. For this reason, I have modified that reference implementation in this repository to make it easy to train (`train.py`) and sample (`sample.py`) from. This repo contributes:
+The model from PassGAN is taken from [_Improved Training of Wasserstein GANs_](https://arxiv.org/abs/1704.00028) and it is assumed that the authors of PassGAN used the [improved_wgan_training](https://github.com/igul222/improved_wgan_training) tensorflow implementation in their work. 
 
-- A command-line interface
+This repository is updated version for Python 3 & TensorFlow 1.13 of [@brannondorsey/PassGAN](https://github.com/brannondorsey/PassGAN).
+
+This repo contributes:
+
+- A command-line interface `sample.py` `train.py`
 - A pretrained PassGAN model trained on the RockYou dataset
+- Jupyter notebook for debugging `notebook-sample.py` `notebook-train.py`
 
 ## Getting Started
 
 ```bash
 # requires CUDA 8 to be pre-installed
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ### Generating password samples
 
-Use the pretrained model to generate 1,000,000 passwords, saving them to `gen_passwords.txt`.
+Use the pretrained model to generate 1,000,000 passwords, saving them to `generated_pass.txt`.
 
 ```bash
 python sample.py \
 	--input-dir pretrained \
-	--checkpoint pretrained/checkpoints/195000.ckpt \
-	--output gen_passwords.txt \
+	--checkpoint pretrained/checkpoints/checkpoint_200000.ckpt \
+	--output generated_pass.txt \
 	--batch-size 1024 \
 	--num-samples 1000000
 ```
@@ -48,16 +53,14 @@ You are encouraged to train using your own password leaks and datasets. Some gre
 - [Exploit.in torrent](https://thepiratebay.org/torrent/16016494/exploit.in) (10GB+, 800 million accounts. Infamous!)
 - [Hashes.org](https://hashes.org/leaks.php): Awesome shared password recovery site. Consider donating if you have the resources ;)
 
-## Results
 
-I've yet to do an exhaustive analysis of my attempt to reproduce the results from the PassGAN paper. However, using the pretrained rockyou model to generate 10⁸ password samples I was able to match 630,347 (23.97%) unique passwords in the test data, using a 80%/20% train/test split.
-
-In general, I am somewhat surprised (and dissapointed) that the authors of PassGAN referenced [prior work](https://www.usenix.org/system/files/conference/usenixsecurity16/sec16_paper_melicher.pdf) in the ML password generation domain but did not compare their results to that research. My initial experience with PassGAN leads me to believe that it would significantly underperform both the RNN and Markov-based approaches mentioned in that paper and I hope that it is not for this reason that the authors have chosen not to compare results.
 
 ## Attribution and License
 
 This code is released under an [MIT License](https://github.com/igul222/improved_wgan_training/blob/master/LICENSE). You are free to use, modify, distribute, or sell it under those terms. 
 
-The majority of the credit for the code in this repository goes to @igul222 for his work on the [improved_wgan_training](https://github.com/igul222/improved_wgan_training). I've simply modularized his code a bit, added a command-line interface, and specialized it for the PassGAN paper.
+The credit for the code in this repository goes to [@igul222](https://github.com/igul222) for his work on the [improved_wgan_training](https://github.com/igul222/improved_wgan_training) and [@brannondorsey](https://github.com/brannondorsey) for specializing it in the PassGAN paper.
+
+This is updated version for Python 3 / TensorFlow 1.13 of their work.
 
 The PassGAN [research and paper](https://arxiv.org/abs/1709.00440) was published by Briland Hitaj, Paolo Gasti, Giuseppe Ateniese, Fernando Perez-Cruz.
