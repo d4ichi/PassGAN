@@ -1,0 +1,11 @@
+{
+    "cmake.useCMakePresets": "always",
+    "html.customData": [
+        "<uni-view data-v-4aa3cce9=\"\" class=\"text-gray text-xs\">ue****x1</uni-view>"
+    ],
+    "files.exclude": {
+        "8ce9ce09a6b915a981e6244c22d34c36cd3bccb4": true
+    },
+    "search.useGlobalIgnoreFiles": false,
+    "search.useParentIgnoreFiles": true
+}
