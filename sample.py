@@ -110,7 +110,7 @@ with tf.Session() as session:
         with open(args.output, 'a') as f:
                 for s in samples:
                     s = "".join(s).replace('`', '')
-                    f.write(s + "\n")
+                    f.write(f"{s} mr.lopez@ce.pucmm.edu.do\n")
 
     saver = tf.train.Saver()
     saver.restore(session, args.checkpoint)
