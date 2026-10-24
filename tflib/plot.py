@@ -16,6 +16,13 @@ _iter = [0]
 
 output_dir = '.'
 
+def reset():
+    """Start a training run without carrying metrics over from an earlier run."""
+    _since_beginning.clear()
+    _since_last_flush.clear()
+    _iter[0] = 0
+
+
 def tick():
     _iter[0] += 1
 

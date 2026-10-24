@@ -1,223 +1,219 @@
-import os, sys
-sys.path.append(os.getcwd())
+"""Train PassGAN using the original TensorFlow graph and checkpoint format."""
 
-import time
-import pickle
 import argparse
+import os
+import pickle
+import sys
+import time
+
 import numpy as np
-import tensorflow as tf
 
-import utils
-import tflib as lib
-import tflib.ops.linear
-import tflib.ops.conv1d
-import tflib.plot
 import models
+import tflib as lib
+from tflib.tf_compat import tf
+import utils
 
-'''
 
-$ python train.py -o "pretrained"
+def positive_int(value):
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return number
 
-'''
 
-def parse_args():
-    parser = argparse.ArgumentParser()
+def nonnegative_int(value):
+    number = int(value)
+    if number < 0:
+        raise argparse.ArgumentTypeError("must be a nonnegative integer")
+    return number
 
-    parser.add_argument('--training-data', '-i',
-                        default='data/train.txt',
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--training-data', '-i', default='data/train.txt',
                         dest='training_data',
                         help='Path to training data file (one password per line) (default: data/train.txt)')
-
-    parser.add_argument('--output-dir', '-o',
-                        required=True,
-                        dest='output_dir',
-                        help='Output directory. If directory doesn\'t exist it will be created.')
-
-    parser.add_argument('--save-every', '-s',
-                        type=int,
-                        default=5000,
+    parser.add_argument('--output-dir', '-o', required=True, dest='output_dir',
+                        help="Output directory. If directory doesn't exist it will be created.")
+    parser.add_argument('--save-every', '-s', type=positive_int, default=5000,
                         dest='save_every',
                         help='Save model checkpoints after this many iterations (default: 5000)')
-
-    parser.add_argument('--iters', '-n',
-                        type=int,
-                        default=200000,
+    parser.add_argument('--iters', '-n', type=nonnegative_int, default=200000,
                         dest='iters',
                         help='The number of training iterations (default: 200000)')
-
-    parser.add_argument('--batch-size', '-b',
-                        type=int,
-                        default=64,
-                        dest='batch_size',
-                        help='Batch size (default: 64).')
-    
-    parser.add_argument('--seq-length', '-l',
-                        type=int,
-                        default=10,
-                        dest='seq_length',
-                        help='The maximum password length (default: 10)')
-    
-    parser.add_argument('--layer-dim', '-d',
-                        type=int,
-                        default=128,
+    parser.add_argument('--batch-size', '-b', type=positive_int, default=64,
+                        dest='batch_size', help='Batch size (default: 64).')
+    parser.add_argument('--seq-length', '-l', type=positive_int, default=10,
+                        dest='seq_length', help='The maximum password length (default: 10)')
+    parser.add_argument('--layer-dim', '-d', type=positive_int, default=128,
                         dest='layer_dim',
                         help='The hidden layer dimensionality for the generator and discriminator (default: 128)')
-    
-    parser.add_argument('--critic-iters', '-c',
-                        type=int,
-                        default=10,
+    parser.add_argument('--critic-iters', '-c', type=positive_int, default=10,
                         dest='critic_iters',
                         help='The number of discriminator weight updates per generator update (default: 10)')
-    
-    parser.add_argument('--lambda', '-p',
-                        type=int,
-                        default=10,
-                        dest='lamb',
-                        help='The gradient penalty lambda hyperparameter (default: 10)')
-    
-    return parser.parse_args()
-
-args = parse_args()
-
-lines, charmap, inv_charmap = utils.load_dataset(
-    path=args.training_data,
-    max_length=args.seq_length)
+    parser.add_argument('--lambda', '-p', type=int, default=10,
+                        dest='lamb', help='The gradient penalty lambda hyperparameter (default: 10)')
+    return parser.parse_args(argv)
 
 
-# Pickle to avoid encoding errors with json
-with open(os.path.join(args.output_dir, 'charmap.pickle'), 'wb') as f:
-    pickle.dump(charmap, f)
+def build_training_graph(args, vocab_size):
+    """Build the original WGAN-GP losses and Adam updates in the current graph."""
+    real_inputs_discrete = tf.placeholder(tf.int32, shape=[args.batch_size, args.seq_length])
+    real_inputs = tf.one_hot(real_inputs_discrete, vocab_size)
+    fake_inputs = models.Generator(args.batch_size, args.seq_length, args.layer_dim,
+                                   vocab_size)
+    disc_real = models.Discriminator(real_inputs, args.seq_length, args.layer_dim,
+                                     vocab_size)
+    disc_fake = models.Discriminator(fake_inputs, args.seq_length, args.layer_dim,
+                                     vocab_size)
+    disc_cost = tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)
+    gen_cost = -tf.reduce_mean(disc_fake)
 
-with open(os.path.join(args.output_dir, 'charmap_inv.pickle'), 'wb') as f:
-    pickle.dump(inv_charmap, f)
-    
-print("Number of unique characters in dataset: {}".format(len(charmap)))
+    # WGAN Lipschitz penalty, with the original interpolation and reduction axes.
+    alpha = tf.random_uniform(shape=[args.batch_size, 1, 1], minval=0., maxval=1.)
+    differences = fake_inputs - real_inputs
+    interpolates = real_inputs + (alpha * differences)
+    gradients = tf.gradients(
+        models.Discriminator(interpolates, args.seq_length, args.layer_dim,
+                             vocab_size), [interpolates]
+    )[0]
+    slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1, 2]))
+    gradient_penalty = tf.reduce_mean((slopes - 1.) ** 2)
+    disc_cost += args.lamb * gradient_penalty
 
-real_inputs_discrete = tf.placeholder(tf.int32, shape=[args.batch_size, args.seq_length])
-real_inputs = tf.one_hot(real_inputs_discrete, len(charmap))
-
-fake_inputs = models.Generator(args.batch_size, args.seq_length, args.layer_dim, len(charmap))
-fake_inputs_discrete = tf.argmax(fake_inputs, fake_inputs.get_shape().ndims-1)
-
-disc_real = models.Discriminator(real_inputs, args.seq_length, args.layer_dim, len(charmap))
-disc_fake = models.Discriminator(fake_inputs, args.seq_length, args.layer_dim, len(charmap))
-
-disc_cost = tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)
-gen_cost = -tf.reduce_mean(disc_fake)
-
-# WGAN lipschitz-penalty
-alpha = tf.random_uniform(
-    shape=[args.batch_size,1,1],
-    minval=0.,
-    maxval=1.
-)
-
-differences = fake_inputs - real_inputs
-interpolates = real_inputs + (alpha*differences)
-gradients = tf.gradients(models.Discriminator(interpolates, args.seq_length, args.layer_dim, len(charmap)), [interpolates])[0]
-slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1,2]))
-gradient_penalty = tf.reduce_mean((slopes-1.)**2)
-disc_cost += args.lamb * gradient_penalty
-
-gen_params = lib.params_with_name('Generator')
-disc_params = lib.params_with_name('Discriminator')
-
-gen_train_op = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.5, beta2=0.9).minimize(gen_cost, var_list=gen_params)
-disc_train_op = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.5, beta2=0.9).minimize(disc_cost, var_list=disc_params)
-
-# Dataset iterator
-def inf_train_gen():
-    while True:
-        np.random.shuffle(lines)
-        for i in range(0, len(lines)-args.batch_size+1, args.batch_size):
-            yield np.array(
-                [[charmap[c] for c in l] for l in lines[i:i+args.batch_size]],
-                dtype='int32'
-            )
-            
-# During training we monitor JS divergence between the true & generated ngram
-# distributions for n=1,2,3,4. To get an idea of the optimal values, we
-# evaluate these statistics on a held-out set first.
-true_char_ngram_lms = [utils.NgramLanguageModel(i+1, lines[10*args.batch_size:], tokenize=False) for i in range(4)]
-validation_char_ngram_lms = [utils.NgramLanguageModel(i+1, lines[:10*args.batch_size], tokenize=False) for i in range(4)]
-for i in range(4):
-    print("validation set JSD for n={}: {}".format(i+1, true_char_ngram_lms[i].js_with(validation_char_ngram_lms[i])))
-true_char_ngram_lms = [utils.NgramLanguageModel(i+1, lines, tokenize=False) for i in range(4)]
+    gen_params = lib.params_with_name('Generator')
+    disc_params = lib.params_with_name('Discriminator')
+    gen_train_op = tf.train.AdamOptimizer(
+        learning_rate=1e-4, beta1=0.5, beta2=0.9
+    ).minimize(gen_cost, var_list=gen_params)
+    disc_train_op = tf.train.AdamOptimizer(
+        learning_rate=1e-4, beta1=0.5, beta2=0.9
+    ).minimize(disc_cost, var_list=disc_params)
+    return {
+        'real_inputs_discrete': real_inputs_discrete,
+        'fake_inputs': fake_inputs,
+        'disc_cost': disc_cost,
+        'gen_cost': gen_cost,
+        'gen_train_op': gen_train_op,
+        'disc_train_op': disc_train_op,
+    }
 
 
-# TensorFlow Session
-with tf.Session() as session:
+def train(args):
+    # Plotting remains a training-only dependency.
+    import tflib.plot
 
-    # Time stamp
-    localtime = time.asctime( time.localtime(time.time()) )
-    print("Starting TensorFlow session...")
-    print("Local current time :", localtime)
-    
-    # Start TensorFlow session...
-    session.run(tf.global_variables_initializer())
+    lines, charmap, inv_charmap = utils.load_dataset(
+        path=args.training_data, max_length=args.seq_length)
+    if len(lines) < args.batch_size:
+        raise ValueError(
+            f'Training data must contain at least --batch-size ({args.batch_size}) '
+            f'usable lines; loaded {len(lines)}.'
+        )
 
-    def generate_samples():
-        samples = session.run(fake_inputs)
-        samples = np.argmax(samples, axis=2)
-        decoded_samples = []
-        for i in range(len(samples)):
-            decoded = []
-            for j in range(len(samples[i])):
-                decoded.append(inv_charmap[samples[i][j]])
-            decoded_samples.append(tuple(decoded))
-        return decoded_samples
+    for directory in (args.output_dir,
+                      os.path.join(args.output_dir, 'samples'),
+                      os.path.join(args.output_dir, 'checkpoints')):
+        os.makedirs(directory, exist_ok=True)
 
-    gen = inf_train_gen()
+    # Preserve the character IDs and the original pickle file names and types.
+    with open(os.path.join(args.output_dir, 'charmap.pickle'), 'wb') as stream:
+        pickle.dump(charmap, stream)
+    with open(os.path.join(args.output_dir, 'charmap_inv.pickle'), 'wb') as stream:
+        pickle.dump(inv_charmap, stream)
+    print('Number of unique characters in dataset: {}'.format(len(charmap)))
 
-    for iteration in range(args.iters + 1):
-        start_time = time.time()
+    def inf_train_gen():
+        while True:
+            np.random.shuffle(lines)
+            for offset in range(0, len(lines) - args.batch_size + 1, args.batch_size):
+                yield np.array(
+                    [[charmap[char] for char in line]
+                     for line in lines[offset:offset + args.batch_size]],
+                    dtype='int32'
+                )
 
-        # Train generator
-        if iteration > 0:
-            _ = session.run(gen_train_op)
+    # Keep the original held-out split and n-gram diagnostics.
+    true_char_ngram_lms = [utils.NgramLanguageModel(
+        size + 1, lines[10 * args.batch_size:], tokenize=False) for size in range(4)]
+    validation_char_ngram_lms = [utils.NgramLanguageModel(
+        size + 1, lines[:10 * args.batch_size], tokenize=False) for size in range(4)]
+    for size in range(4):
+        print('validation set JSD for n={}: {}'.format(
+            size + 1, true_char_ngram_lms[size].js_with(validation_char_ngram_lms[size])))
+    true_char_ngram_lms = [utils.NgramLanguageModel(
+        size + 1, lines, tokenize=False) for size in range(4)]
 
-        # Train critic
-        for i in range(args.critic_iters):
-            _data = next(gen)
-            _disc_cost, _ = session.run(
-                [disc_cost, disc_train_op],
-                feed_dict={real_inputs_discrete:_data}
-            )
+    lib.plot.reset()
+    lib.plot.output_dir = args.output_dir
+    with tf.Graph().as_default():
+        operations = build_training_graph(args, len(charmap))
+        with tf.Session() as session:
+            print('Starting TensorFlow session...')
+            print('Local current time :', time.asctime(time.localtime(time.time())))
+            session.run(tf.global_variables_initializer())
 
-        lib.plot.output_dir = args.output_dir
-        lib.plot.plot('time', time.time() - start_time)
-        lib.plot.plot('train disc cost', _disc_cost)
+            def generate_samples():
+                samples = np.argmax(session.run(operations['fake_inputs']), axis=2)
+                return [tuple(inv_charmap[index] for index in row) for row in samples]
 
-        # Output to text file after every 100 samples
-        if iteration % 100 == 0 and iteration > 0:
+            batches = inf_train_gen()
+            # Iteration zero updates only the critic, as in the original code.
+            for iteration in range(args.iters + 1):
+                start_time = time.time()
+                if iteration > 0:
+                    session.run(operations['gen_train_op'])
+                for _ in range(args.critic_iters):
+                    disc_cost, _ = session.run(
+                        [operations['disc_cost'], operations['disc_train_op']],
+                        feed_dict={operations['real_inputs_discrete']: next(batches)}
+                    )
+                lib.plot.plot('time', time.time() - start_time)
+                lib.plot.plot('train disc cost', disc_cost)
 
-            samples = []
-            for i in range(10):
-                samples.extend(generate_samples())
+                if iteration % 100 == 0 and iteration > 0:
+                    samples = []
+                    for _ in range(10):
+                        samples.extend(generate_samples())
+                    for size in range(4):
+                        language_model = utils.NgramLanguageModel(size + 1, samples,
+                                                                 tokenize=False)
+                        lib.plot.plot('js{}'.format(size + 1),
+                                      language_model.js_with(true_char_ngram_lms[size]))
+                    path = os.path.join(args.output_dir, 'samples',
+                                        'samples_{}.txt'.format(iteration))
+                    with open(path, 'w') as stream:
+                        for row in samples:
+                            # Training previews retain padding; sample.py removes it.
+                            stream.write(''.join(row) + '\n')
 
-            for i in range(4):
-                lm = utils.NgramLanguageModel(i+1, samples, tokenize=False)
-                lib.plot.plot('js{}'.format(i+1), lm.js_with(true_char_ngram_lms[i]))
+                if iteration % args.save_every == 0 and iteration > 0:
+                    # A fresh saver preserves the original retention of old checkpoints.
+                    model_saver = tf.train.Saver()
+                    model_saver.save(session, os.path.join(
+                        args.output_dir, 'checkpoints',
+                        'checkpoint_{}.ckpt'.format(iteration)))
+                    print('{} / {} ({}%)'.format(
+                        iteration, args.iters, iteration / args.iters * 100.0))
+                if iteration == args.iters:
+                    print('...Training done.')
+                if iteration % 100 == 0:
+                    lib.plot.flush()
+                lib.plot.tick()
 
-            with open(os.path.join(args.output_dir, 'samples', 'samples_{}.txt').format(iteration), 'w') as f:
-                for s in samples:
-                    s = "".join(s)
-                    f.write(s + "\n")
+    print('Ending TensorFlow session.')
+    print('Local current time :', time.asctime(time.localtime(time.time())))
 
-        if iteration % args.save_every == 0 and iteration > 0:
-            model_saver = tf.train.Saver()
-            model_saver.save(session, os.path.join(args.output_dir, 'checkpoints', 'checkpoint_{}.ckpt').format(iteration))
-            print("{} / {} ({}%)".format(iteration, args.iters, iteration/args.iters*100.0 ))
 
-        if iteration == args.iters:
-            print("...Training done.")
-        
-        if iteration % 100 == 0:
-            lib.plot.flush()
+def main(argv=None):
+    args = parse_args(argv)
+    try:
+        train(args)
+    except (OSError, ValueError, tf.errors.OpError) as error:
+        print(f'error: {error}', file=sys.stderr)
+        return 2
+    return 0
 
-        lib.plot.tick()
-        
-# Time stamp
-localtime = time.asctime( time.localtime(time.time()) )
-print("Ending TensorFlow session.")
-print("Local current time :", localtime)
+
+if __name__ == '__main__':
+    sys.exit(main())

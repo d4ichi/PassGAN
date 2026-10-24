@@ -1,0 +1,13 @@
+# Training adds plotting dependencies to the unchanged inference environment.
+# Verified target: Python 3.12.14, Windows x64 CPU.
+-r requirements.txt
+
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.67.0
+kiwisolver==1.5.1
+matplotlib==3.11.2
+pillow==13.0.0
+pyparsing==3.3.3
+python-dateutil==3.0.0
+tzdata==2026.5

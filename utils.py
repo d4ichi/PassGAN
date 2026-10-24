@@ -91,7 +91,8 @@ def load_dataset(path, max_length, tokenize=False, max_vocab_size=2048):
 
     with open(path, 'r') as f:
         for line in f:
-            line = line[:-1]
+            # Remove a line ending without dropping a final character at EOF.
+            line = line.removesuffix('\n')
             if tokenize:
                 line = tokenize_string(line)
             else:

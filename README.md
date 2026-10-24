@@ -3,7 +3,7 @@
 
 This repository is an updated version of [@brannondorsey/PassGAN](https://github.com/brannondorsey/PassGAN). It contains code for the [_PassGAN: A Deep Learning Approach for Password Guessing_](https://arxiv.org/abs/1709.00440) paper.
 
-Pretrained sampling now supports Python 3.12 and TensorFlow 2 using `tf.compat.v1`. The training code and notebooks still target the legacy TensorFlow 1.x environment and have not been migrated.
+Command-line training and pretrained sampling now support Python 3.12 and TensorFlow 2 using `tf.compat.v1`. The notebooks still target the legacy TensorFlow 1.x environment and have not been migrated.
 
 The PassGAN model is based on [_Improved Training of Wasserstein GANs_](https://arxiv.org/abs/1704.00028). It is assumed that the PassGAN authors used the [improved_wgan_training](https://github.com/igul222/improved_wgan_training) TensorFlow implementation in their work.
 
@@ -15,7 +15,7 @@ This repository includes:
 
 ## Getting Started
 
-Pretrained sampling has been verified on Windows 11 x64 (CPU) with Python 3.12.14, TensorFlow 2.21.0, and NumPy 2.5.4. CUDA is not required. The Python version is pinned in `.python-version`, and package versions are pinned in `requirements.txt`.
+Pretrained sampling has been verified on Windows 11 x64 (CPU) with Python 3.12.14, TensorFlow 2.21.0, and NumPy 2.5.4. Command-line training uses the same environment with the additional dependencies below. CUDA is not required. The Python version is pinned in `.python-version`, and package versions are pinned in `requirements.txt` and `requirements-training.txt`.
 
 Run the following commands from the repository root in PowerShell to set up an isolated environment. Using a virtual environment and [uv](https://docs.astral.sh/uv/guides/install-python/) is optional. uv downloads the pinned Python version, and the virtual environment isolates this project's dependencies from those of other projects.
 
@@ -57,19 +57,30 @@ Run `python sample.py --help` to see all options.
 
 ### Verification
 
-Run the tests using the bundled checkpoint and saved graph.
+Install the training dependencies, then run the tests using the bundled checkpoint, saved graph, and a small artificial training dataset.
 
 ```powershell
+python -m pip install -r requirements-training.txt
+python -m pip check
 python -m unittest discover -s tests -v
 ```
 
 The tests verify all 24 generator tensors and compare outputs for fixed input noise against the saved `.meta` graph. They also cover a batch size of one, output counts, file handling, and invalid inputs. Both graphs run on TensorFlow 2.21.0. A comparison with a TensorFlow 1.13 runtime has not been performed.
 
-The Windows CPU CI workflow uses the same Python version and pinned package versions. See [the migration notes](docs/inference-migration.md) for details about the environment and verification.
+The training tests perform real generator and discriminator updates, save and restore model weights and Adam optimizer state, and use `sample.py` to generate strings from a newly trained checkpoint. The artificial dataset is created by the tests; no training-data download is required. These tests check execution and saved artifacts, not convergence or password quality.
+
+The Windows CPU CI workflow uses the same Python version and pinned package versions. See [the inference migration notes](docs/inference-migration.md) and [the training migration notes](docs/training-migration.md) for details about the environment and verification.
 
 ### Training your own models
 
-> The instructions below target the original TensorFlow 1.x environment. The training code and notebooks have not been migrated to TensorFlow 2 or tested with the current inference dependencies. To reproduce the original setup, use the source code and requirements from the [original TensorFlow 1.13 revision](https://github.com/d4ichi/PassGAN/tree/8ce9ce09a6b915a981e6244c22d34c36cd3bccb4). The CUDA prerequisite and GTX 1080 training-time estimate below refer to the original environment.
+Install the additional training dependencies in the active environment.
+
+```powershell
+python -m pip install -r requirements-training.txt
+python -m pip check
+```
+
+> The following CUDA prerequisite and installation command are retained as a reference for the original TensorFlow 1.x environment. To reproduce that setup, use the source code and requirements from the [original TensorFlow 1.13 revision](https://github.com/d4ichi/PassGAN/tree/8ce9ce09a6b915a981e6244c22d34c36cd3bccb4). They are not prerequisites for the current CPU setup. The notebooks have not been migrated.
 
 ```bash
 # requires CUDA 8 to be pre-installed
@@ -78,18 +89,22 @@ pip3 install -r requirements.txt
 
 You can download sample datasets from the releases page or generate a sample RockYou dataset yourself using the scripts in `bin`.
 
-Training a model on a large dataset (100 MB or more) can take several hours on a GTX 1080.
+In the original TensorFlow 1.x environment, training a model on a large dataset (100 MB or more) could take several hours on a GTX 1080. This is the original estimate; current CPU training time and GPU execution have not been evaluated.
 
-```bash
+```powershell
 # download the rockyou training data
 # contains 80% of the RockYou passwords (including repeats)
 # that are 10 characters or fewer
-curl -L -o data/train.txt https://github.com/d4ichi/PassGAN/releases/download/data/rockyou-test.txt
+curl.exe -L -o data/train.txt https://github.com/d4ichi/PassGAN/releases/download/data/rockyou-test.txt
 
 # train for 200000 iterations, saving checkpoints every 5000
 # uses the default hyperparameters from the paper
 python train.py --output-dir output --training-data data/train.txt
 ```
+
+Training retains the original command-line options and output layout, including character dictionaries in `output`, checkpoints in `output/checkpoints`, and preview samples in `output/samples`. The output directory is created if needed. Training data must contain at least one full batch of usable lines. A final line without a newline now keeps its last character; filtering and padding otherwise follow the original behavior.
+
+Checkpoint saving follows `--save-every`; training does not force an additional save at the end. To generate strings from a trained model, use `sample.py` with `--input-dir output` and the saved checkpoint prefix, keeping `--seq-length` and `--layer-dim` consistent with training. See [the training migration notes](docs/training-migration.md) for the preserved iteration and output details.
 
 
 You are encouraged to train using your own password leaks and datasets. Some great places to find those include:
