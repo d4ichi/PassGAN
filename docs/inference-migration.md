@@ -27,7 +27,7 @@ TensorFlow 2.21.0's [PyPI metadata](https://pypi.org/pypi/tensorflow/2.21.0/json
 
 ## Validation
 
-Run the README installation and test commands from a clean virtual environment. Checks cover:
+Run the README installation and test commands from a clean virtual environment. The full test suite now also requires `requirements-training.txt`; it includes the unchanged inference pins from `requirements.txt`. The inference checks cover:
 
 - Reading the original checkpoint and matching all 24 required generator tensors by name, shape, dtype, and exact restored values; no generator variables remain uninitialized.
 - Feeding the same explicit float32 noise array (64 x 128) into the migrated generator and the original `.meta` graph. Probabilities must match within `rtol=1e-5, atol=1e-6`; selected character IDs must match exactly.
@@ -53,4 +53,4 @@ GitHub Actions results are reported separately in the workflow runs and pull req
 4. Regenerate `requirements.txt` from that dedicated environment using `python -m pip freeze`, retaining the environment comments. Update `.python-version`, this environment table, and README as appropriate.
 5. Install the resulting `requirements.txt` into another empty virtual environment, run `python -m pip check`, and rerun the tests. Commit the pins together with the tested source changes.
 
-Training and notebook migration, Keras model conversion, and GPU support are subsequent stages.
+Command-line training migration and its training -> saving -> sampling tests are documented separately in [the training migration notes](training-migration.md). Notebook migration, Keras model conversion, and GPU validation remain subsequent stages.

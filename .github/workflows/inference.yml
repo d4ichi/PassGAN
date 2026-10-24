@@ -1,4 +1,4 @@
-name: Pretrained inference
+name: Training and inference
 
 on:
   push:
@@ -22,15 +22,21 @@ jobs:
         with:
           version: "0.13.5"
           enable-cache: true
-          cache-dependency-glob: requirements.txt
+          cache-dependency-glob: |
+            requirements.txt
+            requirements-training.txt
       - name: Create the pinned Python environment
         shell: pwsh
         run: |
           $pythonVersion = (Get-Content .python-version -Raw).Trim()
           uv venv --python $pythonVersion --managed-python --seed .venv
       - name: Install pinned dependencies
-        run: .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+        run: .\.venv\Scripts\python.exe -m pip install -r requirements-training.txt
       - name: Check dependencies
         run: .\.venv\Scripts\python.exe -m pip check
-      - name: Verify checkpoint and sampling
-        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+      - name: Verify pretrained checkpoint compatibility
+        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_checkpoint_compatibility.py" -v
+      - name: Verify pretrained sampling
+        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_sampling.py" -v
+      - name: Verify training, checkpoint saving, and sampling
+        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_training.py" -v
