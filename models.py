@@ -1,4 +1,4 @@
-import tensorflow as tf
+from tflib.tf_compat import tf
 import tflib as lib
 import tflib.ops.linear
 import tflib.ops.conv1d
@@ -13,9 +13,11 @@ def ResBlock(name, inputs, dim):
     output = lib.ops.conv1d.Conv1D(name+'.2', dim, dim, 5, output)
     return inputs + (0.3*output)
 
-def Generator(n_samples, seq_len, layer_dim, output_dim, prev_outputs=None):
+def Generator(n_samples, seq_len, layer_dim, output_dim, prev_outputs=None, noise=None):
+    """Build the original generator, optionally using supplied [batch, 128] noise."""
     # print("- Creating Generator -")
-    output = make_noise(shape=[n_samples, 128])
+    output = (make_noise(shape=[n_samples, 128]) if noise is None
+              else tf.convert_to_tensor(noise, dtype=tf.float32))
     # print("Initialized:", output)
     output = lib.ops.linear.Linear('Generator.Input', 128, seq_len * layer_dim, output)
     # print("Lineared:", output)

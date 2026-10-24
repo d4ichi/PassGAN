@@ -1,0 +1,36 @@
+name: Pretrained inference
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-cpu:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      CUDA_VISIBLE_DEVICES: "-1"
+      TF_CPP_MIN_LOG_LEVEL: "2"
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.13.5"
+          enable-cache: true
+          cache-dependency-glob: requirements.txt
+      - name: Create the pinned Python environment
+        shell: pwsh
+        run: |
+          $pythonVersion = (Get-Content .python-version -Raw).Trim()
+          uv venv --python $pythonVersion --managed-python --seed .venv
+      - name: Install pinned dependencies
+        run: .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+      - name: Check dependencies
+        run: .\.venv\Scripts\python.exe -m pip check
+      - name: Verify checkpoint and sampling
+        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
