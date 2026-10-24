@@ -127,7 +127,7 @@ Open the existing distribution from PowerShell.
 wsl --distribution PassGAN-GPU --cd /home/passgan
 ```
 
-Activate the virtual environment in Ubuntu, change to the repository root, and check that TensorFlow detects a GPU. Keep this environment active for the commands below.
+Activate the virtual environment in Ubuntu, change to the repository root, and check that TensorFlow detects a GPU. Keep this environment active when running the sampling and training commands.
 
 ```bash
 source ~/passgan-gpu/.venv/bin/activate
@@ -142,54 +142,14 @@ Confirm that the Python version matches `.python-version` and the GPU check succ
 export CUDA_VISIBLE_DEVICES=0
 ```
 
-Generate 1,003 samples from the bundled model using the same `sample.py` interface and output format as above.
-
-```bash
-python sample.py \
-	--input-dir pretrained \
-	--checkpoint pretrained/checkpoints/checkpoint_200000.ckpt \
-	--output generated_pass.txt \
-	--batch-size 64 \
-	--num-samples 1003
-```
-
-For a short training run, use your own `data/train.txt` or download the same sample dataset described in [Training your own models](#training-your-own-models) from Ubuntu.
-
-```bash
-curl -L -o data/train.txt https://github.com/d4ichi/PassGAN/releases/download/data/rockyou-test.txt
-```
-
-The following options keep the original model dimensions and output layout while shortening the run. They do not change the CLI defaults.
-
-```bash
-python train.py \
-	--output-dir output \
-	--training-data data/train.txt \
-	--batch-size 16 \
-	--seq-length 10 \
-	--layer-dim 128 \
-	--critic-iters 1 \
-	--iters 100 \
-	--save-every 10
-```
-
-Generate samples from the checkpoint saved at iteration 100. As in the earlier example, this overwrites `generated_pass.txt` unless `--append` is specified.
-
-```bash
-python sample.py \
-	--input-dir output \
-	--checkpoint output/checkpoints/checkpoint_100.ckpt \
-	--output generated_pass.txt \
-	--batch-size 16 \
-	--num-samples 1003
-```
+Use the same commands, options, and output formats described in [Generating password samples](#generating-password-samples) and [Training your own models](#training-your-own-models). The examples above use PowerShell syntax; in Ubuntu, use `\` for line continuation and `curl` instead of `curl.exe`.
 
 The manual GPU checks on October 25, 2026, used [revision `0f621db`](https://github.com/d4ichi/PassGAN/commit/0f621db8b0f0190b79a4c1d16025c3b0a4a1e757) and confirmed the following results:
 
 | Check | Result |
 | --- | --- |
 | Bundled pretrained checkpoint | Generated exactly 1,003 samples on the GPU, including a partial final batch. |
-| Training, saving, and sampling | Trained on 512 artificial lines with the options above, saved 10 checkpoints, and generated 1,003 samples on the GPU from `checkpoint_100.ckpt`. |
+| Training, saving, and sampling | Trained on 512 artificial lines with `--batch-size 16 --seq-length 10 --layer-dim 128 --critic-iters 1 --iters 100 --save-every 10`, saved 10 checkpoints, and generated 1,003 samples on the GPU from `checkpoint_100.ckpt`. |
 | Saved model state | All 148 saved model and optimizer tensors matched the final session values and contained no NaN or infinity values. |
 | CPU compatibility | Restored the GPU-trained checkpoint in a separate CPU process and generated 257 samples. |
 
