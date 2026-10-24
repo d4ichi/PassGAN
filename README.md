@@ -34,7 +34,7 @@ python -m pip check
 
 Check that the reported Python version matches `.python-version`. Keep the environment active for the commands below. In a new PowerShell session, activate it again with `.\.venv\Scripts\Activate.ps1`.
 
-GPU execution has also been verified in WSL2; see [GPU execution (WSL2)](#gpu-execution-wsl2) below. For TensorFlow GPU support on Windows, see the [WSL2 installation guide](https://www.tensorflow.org/install/pip).
+GPU sampling and training have also been verified in WSL2; see [Verification](#verification). CPU and GPU execution use the same commands and output formats, and TensorFlow automatically uses available GPUs for supported operations. For TensorFlow GPU support on Windows, see the [WSL2 installation guide](https://www.tensorflow.org/install/pip).
 
 ### Generating password samples
 
@@ -70,6 +70,19 @@ The tests verify all 24 generator tensors and compare outputs for fixed input no
 The training tests perform real generator and discriminator updates, save and restore model weights and Adam optimizer state, and use `sample.py` to generate strings from a newly trained checkpoint. The artificial dataset is created by the tests; no training-data download is required. These tests check execution and saved artifacts, not convergence or password quality.
 
 The Windows CPU CI workflow uses the same Python version and pinned package versions. See [the inference migration notes](docs/inference-migration.md) and [the training migration notes](docs/training-migration.md) for details about the environment and verification.
+
+Manual GPU checks on October 25, 2026, used [revision `0f621db`](https://github.com/d4ichi/PassGAN/commit/0f621db8b0f0190b79a4c1d16025c3b0a4a1e757) in the `PassGAN-GPU` WSL2 environment: Ubuntu 24.04.5 LTS, an NVIDIA GeForce RTX 3080 (10 GiB), NVIDIA driver 610.88, Python 3.12.14, and TensorFlow 2.21.0.
+
+| Check | Result |
+| --- | --- |
+| Bundled pretrained checkpoint | Generated exactly 1,003 samples on the GPU, including a partial final batch. |
+| Training, saving, and sampling | Trained on 512 artificial lines with `--batch-size 16 --seq-length 10 --layer-dim 128 --critic-iters 1 --iters 100 --save-every 10`, saved 10 checkpoints, and generated 1,003 samples on the GPU from `checkpoint_100.ckpt`. |
+| Saved model state | All 148 saved model and optimizer tensors matched the final session values and contained no NaN or infinity values. |
+| CPU compatibility | Restored the GPU-trained checkpoint in a separate CPU process and generated 257 samples. |
+
+Runtime traces confirmed GPU execution of convolution, matrix multiplication, backpropagation, and Adam updates for both networks. Additional short runs using the standard command-line scripts with their default TensorFlow session settings also succeeded without the tracing wrapper. The bundled pretrained files remained unchanged.
+
+These checks verify short-run execution, checkpoint creation, and sampling. They do not establish convergence, password quality, training performance, or long-run stability. The CI workflow remains CPU-only.
 
 ### Training your own models
 
@@ -113,49 +126,6 @@ You are encouraged to train using your own password leaks and datasets. Some gre
 - [Exploit.in torrent](https://thepiratebay.org/torrent/16016494/exploit.in) (10 GB+, 800 million accounts. Infamous!)
 - [Hashes.org](https://hashes.org/leaks.php): An awesome site for collaborative password recovery. Consider donating if you have the resources ;)
 
-
-
-### GPU execution (WSL2)
-
-GPU execution was verified in the `PassGAN-GPU` WSL2 environment with Ubuntu 24.04.5 LTS, an NVIDIA GeForce RTX 3080 (10 GiB), NVIDIA driver 610.88, Python 3.12.14, and TensorFlow 2.21.0.
-
-The following commands assume that this WSL distribution, its virtual environment, the repository, and the GPU runtime dependencies are already set up. The paths shown match the verified environment; adjust them for your own installation. The Windows CPU setup above does not install the additional GPU dependencies.
-
-Open the existing distribution from PowerShell.
-
-```powershell
-wsl --distribution PassGAN-GPU --cd /home/passgan
-```
-
-Activate the virtual environment in Ubuntu, change to the repository root, and check that TensorFlow detects a GPU. Keep this environment active when running the sampling and training commands.
-
-```bash
-source ~/passgan-gpu/.venv/bin/activate
-cd ~/passgan-gpu/PassGAN
-python --version
-python -c "import tensorflow as tf; gpus = tf.config.list_physical_devices('GPU'); print(gpus); assert gpus, 'No GPU detected'"
-```
-
-Confirm that the Python version matches `.python-version` and the GPU check succeeds before continuing. TensorFlow automatically places supported operations on an available GPU; the CLI does not require a GPU option. To select the first GPU for this shell session, use the following optional setting. Setting it to `-1` instead selects CPU execution. This setting controls GPU visibility and does not guarantee GPU execution; string processing and file I/O still run on the CPU.
-
-```bash
-export CUDA_VISIBLE_DEVICES=0
-```
-
-Use the same commands, options, and output formats described in [Generating password samples](#generating-password-samples) and [Training your own models](#training-your-own-models). The examples above use PowerShell syntax; in Ubuntu, use `\` for line continuation and `curl` instead of `curl.exe`.
-
-The manual GPU checks on October 25, 2026, used [revision `0f621db`](https://github.com/d4ichi/PassGAN/commit/0f621db8b0f0190b79a4c1d16025c3b0a4a1e757) and confirmed the following results:
-
-| Check | Result |
-| --- | --- |
-| Bundled pretrained checkpoint | Generated exactly 1,003 samples on the GPU, including a partial final batch. |
-| Training, saving, and sampling | Trained on 512 artificial lines with `--batch-size 16 --seq-length 10 --layer-dim 128 --critic-iters 1 --iters 100 --save-every 10`, saved 10 checkpoints, and generated 1,003 samples on the GPU from `checkpoint_100.ckpt`. |
-| Saved model state | All 148 saved model and optimizer tensors matched the final session values and contained no NaN or infinity values. |
-| CPU compatibility | Restored the GPU-trained checkpoint in a separate CPU process and generated 257 samples. |
-
-Runtime traces confirmed GPU execution of convolution, matrix multiplication, backpropagation, and Adam updates for both networks. Additional short runs using the standard command-line scripts with their default TensorFlow session settings also succeeded without the tracing wrapper. The bundled pretrained files remained unchanged.
-
-These checks verify short-run execution, checkpoint creation, and sampling. They do not establish convergence, password quality, training performance, or long-run stability. The CI workflow remains CPU-only.
 
 
 ## Attribution and License
