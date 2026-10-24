@@ -1,7 +1,7 @@
 import tflib as lib
 
 import numpy as np
-import tensorflow as tf
+from tflib.tf_compat import tf
 
 _default_weightnorm = False
 def enable_default_weightnorm():
@@ -134,7 +134,7 @@ def Linear(
         else:
             reshaped_inputs = tf.reshape(inputs, [-1, input_dim])
             result = tf.matmul(reshaped_inputs, weight)
-            result = tf.reshape(result, tf.pack(tf.unpack(tf.shape(inputs))[:-1] + [output_dim]))
+            result = tf.reshape(result, tf.stack(tf.unstack(tf.shape(inputs))[:-1] + [output_dim]))
 
         if biases:
             result = tf.nn.bias_add(

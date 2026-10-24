@@ -1,12 +1,22 @@
 import numpy as np
-import tensorflow as tf
+from tflib.tf_compat import tf
 
 import locale
 
 locale.setlocale(locale.LC_ALL, 'C')
 
-_params = {}
-_param_aliases = {}
+def _graph_state():
+    """Keep shared variables on their graph so separate graphs never mix.
+
+    The graph owns the dictionaries rather than a module-level cache retaining
+    every graph constructed during the lifetime of the process.
+    """
+    graph = tf.get_default_graph()
+    if not hasattr(graph, '_tflib_parameter_state'):
+        graph._tflib_parameter_state = ({}, {})
+    return graph._tflib_parameter_state
+
+
 def param(name, *args, **kwargs):
     """
     A wrapper for `tf.Variable` which enables parameter sharing in models.
@@ -20,32 +30,42 @@ def param(name, *args, **kwargs):
     creates, so that you can easily search a graph for all params.
     """
 
-    if name not in _params:
+    params, aliases = _graph_state()
+    if name not in params:
         kwargs['name'] = name
+        # Preserve the legacy variable behavior without changing global TF flags.
+        kwargs.setdefault('use_resource', False)
         param = tf.Variable(*args, **kwargs)
         param.param = True
-        _params[name] = param
-    result = _params[name]
+        params[name] = param
+    result = params[name]
     i = 0
-    while result in _param_aliases:
+    while result.ref() in aliases:
         # print 'following alias {}: {} to {}'.format(i, result, _param_aliases[result])
         i += 1
-        result = _param_aliases[result]
+        result = aliases[result.ref()]
     return result
 
 def params_with_name(name):
-    return [p for n,p in _params.items() if name in n]
+    params, _ = _graph_state()
+    return [p for n,p in params.items() if name in n]
 
 def delete_all_params():
-    _params.clear()
+    params, _ = _graph_state()
+    params.clear()
 
 def alias_params(replace_dict):
+    _, aliases = _graph_state()
+    graph = tf.get_default_graph()
     for old,new in replace_dict.items():
         # print "aliasing {} to {}".format(old,new)
-        _param_aliases[old] = new
+        if old.graph is not graph or new.graph is not graph:
+            raise ValueError('Aliased parameters must belong to the current graph')
+        aliases[old.ref()] = new
 
 def delete_param_aliases():
-    _param_aliases.clear()
+    _, aliases = _graph_state()
+    aliases.clear()
 
 # def search(node, critereon):
 #     """
