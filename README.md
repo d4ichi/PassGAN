@@ -3,7 +3,7 @@
 
 This repository is an updated version of [@brannondorsey/PassGAN](https://github.com/brannondorsey/PassGAN). It contains code for the [_PassGAN: A Deep Learning Approach for Password Guessing_](https://arxiv.org/abs/1709.00440) paper.
 
-Command-line training and pretrained sampling now support Python 3.12 and TensorFlow 2 using `tf.compat.v1`. The notebooks still target the legacy TensorFlow 1.x environment and have not been migrated.
+Training and pretrained sampling support Python 3.12 and TensorFlow 2 using `tf.compat.v1` in both the command-line scripts and the debugging notebooks.
 
 The PassGAN model is based on [_Improved Training of Wasserstein GANs_](https://arxiv.org/abs/1704.00028). It is assumed that the PassGAN authors used the [improved_wgan_training](https://github.com/igul222/improved_wgan_training) TensorFlow implementation in their work.
 
@@ -15,7 +15,7 @@ This repository includes:
 
 ## Getting Started
 
-The PowerShell setup below uses Python 3.12.14, TensorFlow 2.21.0, and NumPy 2.5.4 on Windows x64. Command-line training requires the additional dependencies below. CUDA is not required for CPU execution. The Python version is pinned in `.python-version`, and package versions are pinned in `requirements.txt` and `requirements-training.txt`.
+The PowerShell setup below uses Python 3.12.14, TensorFlow 2.21.0, and NumPy 2.5.4 on Windows x64. Training and notebook use require the additional dependencies below. CUDA is not required for CPU execution. The Python version is pinned in `.python-version`, and package versions are pinned in `requirements.txt`, `requirements-training.txt`, and `requirements-notebooks.txt`.
 
 Run the following commands from the repository root in PowerShell to set up an isolated environment. Using a virtual environment and [uv](https://docs.astral.sh/uv/guides/install-python/) is optional. uv downloads the pinned Python version, and the virtual environment isolates this project's dependencies from those of other projects.
 
@@ -71,6 +71,20 @@ The training tests perform real generator and discriminator updates, save and re
 
 The Windows CPU CI workflow uses the same Python version and pinned package versions. See [the inference migration notes](docs/inference-migration.md) and [the training migration notes](docs/training-migration.md) for details about the environment and verification.
 
+### Jupyter notebooks
+
+In the active environment, install the notebook dependencies and start Jupyter from the repository root.
+
+```powershell
+python -m pip install -r requirements-notebooks.txt
+python -m pip check
+python -m notebook
+```
+
+Open `notebook-sample.ipynb` or `notebook-train.ipynb`, select the Python kernel for this environment, review the parameters in `VirtualArgparse`, and run the cells in order. The training notebook defaults to `output_dir = "pretrained"`; choose a different output directory to keep the bundled model files.
+
+See [the notebook migration notes](docs/notebook-migration.md) for the preserved defaults and input/output differences from the command-line scripts.
+
 ### Training your own models
 
 Install the additional training dependencies in the active environment.
@@ -80,7 +94,7 @@ python -m pip install -r requirements-training.txt
 python -m pip check
 ```
 
-> The following CUDA prerequisite and installation command are retained as a reference for the original TensorFlow 1.x environment. To reproduce that setup, use the source code and requirements from the [original TensorFlow 1.13 revision](https://github.com/d4ichi/PassGAN/tree/8ce9ce09a6b915a981e6244c22d34c36cd3bccb4). They are not prerequisites for the current CPU setup. The notebooks have not been migrated.
+> The following CUDA prerequisite and installation command are retained as a reference for the original TensorFlow 1.x environment. To reproduce that setup, use the source code and requirements from the [original TensorFlow 1.13 revision](https://github.com/d4ichi/PassGAN/tree/8ce9ce09a6b915a981e6244c22d34c36cd3bccb4). They are not prerequisites for the current CPU setup.
 
 ```bash
 # requires CUDA 8 to be pre-installed

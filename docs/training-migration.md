@@ -14,7 +14,7 @@ python -m pip check
 python -m unittest discover -s tests -v
 ```
 
-GPU execution, other operating systems, notebook migration, and a command-line option for resuming training are outside this migration. No training-time or password-quality claim is made.
+GPU execution, other operating systems, and a command-line option for resuming training are outside this migration. Notebook setup and its preserved input/output behavior are described in [the notebook migration notes](notebook-migration.md). No training-time or password-quality claim is made.
 
 ## Preserved commands and training behavior
 

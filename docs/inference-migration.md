@@ -53,4 +53,4 @@ GitHub Actions results are reported separately in the workflow runs and pull req
 4. Regenerate `requirements.txt` from that dedicated environment using `python -m pip freeze`, retaining the environment comments. Update `.python-version`, this environment table, and README as appropriate.
 5. Install the resulting `requirements.txt` into another empty virtual environment, run `python -m pip check`, and rerun the tests. Commit the pins together with the tested source changes.
 
-Command-line training migration and its training -> saving -> sampling tests are documented separately in [the training migration notes](training-migration.md). Notebook migration, Keras model conversion, and GPU validation remain subsequent stages.
+Command-line training migration and its training -> saving -> sampling tests are documented separately in [the training migration notes](training-migration.md). Notebook setup and its preserved input/output behavior are described in [the notebook migration notes](notebook-migration.md). Keras model conversion and GPU validation are outside the scope of this inference migration.
