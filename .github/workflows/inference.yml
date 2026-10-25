@@ -25,13 +25,14 @@ jobs:
           cache-dependency-glob: |
             requirements.txt
             requirements-training.txt
+            requirements-notebooks.txt
       - name: Create the pinned Python environment
         shell: pwsh
         run: |
           $pythonVersion = (Get-Content .python-version -Raw).Trim()
           uv venv --python $pythonVersion --managed-python --seed .venv
       - name: Install pinned dependencies
-        run: .\.venv\Scripts\python.exe -m pip install -r requirements-training.txt
+        run: .\.venv\Scripts\python.exe -m pip install -r requirements-notebooks.txt
       - name: Check dependencies
         run: .\.venv\Scripts\python.exe -m pip check
       - name: Verify pretrained checkpoint compatibility
@@ -40,3 +41,7 @@ jobs:
         run: .\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_sampling.py" -v
       - name: Verify training, checkpoint saving, and sampling
         run: .\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_training.py" -v
+      - name: Verify notebook sampling, training, and kernel reuse
+        env:
+          PASSGAN_REQUIRE_NOTEBOOK_TESTS: "1"
+        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_notebooks.py" -v
