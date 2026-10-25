@@ -1,8 +1,7 @@
-# utility script that creates the full rockyou leak using the word count
-# redirect this output to a file to save it. Once you do that it is recommended
-# to 'sort -R' to randomize it.
+# Expand password counts into ../data/rockyou-full.txt.
+# Run from bin; prep-data.py shuffles the resulting lines.
 
-with open('../data/rockyou-full.txt', 'w') as fo:
+with open('../data/rockyou-full.txt', 'w', encoding='utf-8') as fo:
 
     #with open('../data/rockyou-withcount.txt', 'r', encoding="ISO-8859-1") as fi:
     with open('../data/rockyou-withcount.txt', 'rb') as fi:
@@ -30,5 +29,5 @@ with open('../data/rockyou-full.txt', 'w') as fo:
                     #fo.write("¥n")
                     
             except ValueError:
-                # Skipping enpty password
+                # Skip records without a valid count and password.
                 continue

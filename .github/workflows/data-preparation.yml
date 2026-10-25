@@ -1,0 +1,35 @@
+name: Data preparation
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  data-preparation:
+    name: data-preparation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            python: ./.venv/Scripts/python.exe
+          - os: ubuntu-latest
+            python: ./.venv/bin/python
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.13.5"
+      - name: Create the pinned Python environment
+        shell: pwsh
+        run: |
+          $pythonVersion = (Get-Content .python-version -Raw).Trim()
+          uv venv --python $pythonVersion --managed-python .venv
+      - name: Verify data preparation with artificial data
+        run: ${{ matrix.python }} -m unittest discover -s tests -p "test_data_preparation.py" -v

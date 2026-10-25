@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 # This script download "rockyou-withcount.txt.bz2" and extracts it.
 # File URL: http://downloads.skullsecurity.org/passwords/rockyou-withcount.txt.bz2
 

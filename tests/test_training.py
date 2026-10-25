@@ -2,6 +2,7 @@
 
 from contextlib import redirect_stderr, redirect_stdout
 import io
+import json
 import os
 from pathlib import Path
 import pickle
@@ -185,6 +186,47 @@ class TrainingTests(unittest.TestCase):
         self.assertNotIn("\r", charmap)
         self.assertNotIn("\n", charmap)
         self.assertEqual({character: index for index, character in enumerate(inverse)}, charmap)
+
+    def test_prepared_utf8_data_loads_with_utf8_mode_disabled(self):
+        working_bin = self.path / "bin"
+        working_data = self.path / "data"
+        working_bin.mkdir()
+        working_data.mkdir()
+        passwords = ["caf\u00e9", "\u00e9t\u00e9", "\u00f8"]
+        (working_data / "rockyou-withcount.txt").write_bytes(
+            "".join(f"10 {password}\n" for password in passwords).encode("iso-8859-1")
+        )
+        environment = os.environ.copy()
+        environment.update({
+            "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0",
+            "LC_ALL": "C", "PYTHONPATH": str(ROOT),
+        })
+        for script in ("make-rockyou-full.py", "prep-data.py"):
+            result = subprocess.run(
+                [sys.executable, "-X", "utf8=0", str(ROOT / "bin" / script)],
+                cwd=working_bin, env=environment, capture_output=True,
+                text=True, encoding="ascii", errors="backslashreplace", timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        code = "\n".join([
+            "from contextlib import redirect_stdout",
+            "import io, sys, utils",
+            "assert sys.flags.utf8_mode == 0",
+            "with redirect_stdout(io.StringIO()):",
+            "    lines, charmap, inverse = utils.load_dataset(sys.argv[1], max_length=4)",
+            "words = [''.join(line).rstrip('`') for line in lines]",
+            "assert len(words) == 24, len(words)",
+            f"assert set(words) == set({json.dumps(passwords)}), ascii(words)",
+            "print('utf8-data-ok')",
+        ])
+        result = subprocess.run(
+            [sys.executable, "-X", "utf8=0", "-c", code, str(working_data / "train.txt")],
+            cwd=working_bin, env=environment, capture_output=True,
+            text=True, encoding="ascii", errors="backslashreplace", timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("utf8-data-ok", result.stdout)
 
     def test_invalid_arguments_and_too_small_dataset_fail_without_hanging(self):
         for flag in ("-s", "-b", "-l", "-d", "-c"):
