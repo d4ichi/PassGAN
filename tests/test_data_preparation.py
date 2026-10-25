@@ -12,7 +12,11 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASET_URL = "http://downloads.skullsecurity.org/passwords/rockyou-withcount.txt.bz2"
+DATASET_URL = (
+    "https://raw.githubusercontent.com/danielmiessler/SecLists/"
+    "5e1dc9cc79aac54b373349e2a97bbb22f1b63bb3/"
+    "Passwords/Leaked-Databases/rockyou-withcount.txt.tar.gz"
+)
 
 
 class DataPreparationTests(unittest.TestCase):
@@ -123,35 +127,44 @@ class DataPreparationTests(unittest.TestCase):
         (self.path / "commands.jsonl").write_text("", encoding="utf-8")
         helper = stubs / "simulate_tools.py"
         helper.write_text("""
-import bz2
+import io
 import json
 import os
 from pathlib import Path
 import sys
+import tarfile
 
 root = Path(os.environ['PASSGAN_TEST_ROOT']).resolve()
 command, arguments = sys.argv[1], sys.argv[2:]
 mode = os.environ['PASSGAN_TEST_MODE']
 with (root / 'commands.jsonl').open('a', encoding='utf-8') as stream:
     stream.write(json.dumps([command, arguments]) + '\\n')
-archive = root / 'data' / 'rockyou-withcount.txt.bz2'
+archive = root / 'data' / 'rockyou-withcount.txt.tar.gz'
 if command == 'wget':
     assert arguments == [os.environ['PASSGAN_TEST_URL'], '-P', '../data']
     if mode == 'wget-fail':
         print('intentional wget failure', file=sys.stderr)
         sys.exit(8)
-    archive.write_bytes(bz2.compress(b'2 alpha\\n1 bravo\\n'))
-elif command == 'bzip2':
-    assert arguments == ['-d', '../data/rockyou-withcount.txt.bz2']
-    if mode == 'bzip2-fail':
-        print('intentional bzip2 failure', file=sys.stderr)
-        sys.exit(2)
-    archive.with_suffix('').write_bytes(bz2.decompress(archive.read_bytes()))
-    archive.unlink()
+    if mode == 'tar-fail':
+        archive.write_bytes(b'not a gzip archive')
+    else:
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode='w:gz') as bundle:
+            for name, content in (
+                ('rockyou-withcount.txt', b'2 alpha\\n1 bravo\\n'),
+                ('unrelated.txt', b'do not extract this file'),
+            ):
+                member = tarfile.TarInfo(name)
+                member.size = len(content)
+                bundle.addfile(member, io.BytesIO(content))
+        payload = buffer.getvalue()
+        if mode == 'truncated-archive':
+            payload = payload[:-8]
+        archive.write_bytes(payload)
 else:
     raise AssertionError(command)
 """, encoding="utf-8")
-        for command in ("wget", "bzip2"):
+        for command in ("wget",):
             executable = stubs / command
             executable.write_text(
                 '#!/bin/sh\nexec "$PASSGAN_TEST_PYTHON" "$PASSGAN_TEST_HELPER" '
@@ -160,8 +173,9 @@ else:
             executable.chmod(0o755)
         environment = os.environ.copy()
         environment.update({
-            # Only the two stubs can be resolved; neither invokes a real network tool.
-            "PATH": str(stubs), "PASSGAN_TEST_ROOT": str(self.path),
+            # Stub wget; use the system tar/gzip to exercise real extraction.
+            "PATH": str(stubs) + os.pathsep + os.defpath,
+            "PASSGAN_TEST_ROOT": str(self.path),
             "PASSGAN_TEST_PYTHON": sys.executable,
             "PASSGAN_TEST_HELPER": str(helper), "PASSGAN_TEST_URL": DATASET_URL,
             "PASSGAN_TEST_MODE": mode,
@@ -183,16 +197,16 @@ else:
         self.assertEqual(
             (self.data / "rockyou-withcount.txt").read_bytes(), b"2 alpha\n1 bravo\n",
         )
-        self.assertFalse((self.data / "rockyou-withcount.txt.bz2").exists())
+        self.assertFalse((self.data / "rockyou-withcount.txt.tar.gz").exists())
+        self.assertFalse((self.data / "unrelated.txt").exists())
         commands = [json.loads(line) for line in (self.path / "commands.jsonl").read_text().splitlines()]
         self.assertEqual(commands, [
             ["wget", [DATASET_URL, "-P", "../data"]],
-            ["bzip2", ["-d", "../data/rockyou-withcount.txt.bz2"]],
         ])
 
     @unittest.skipUnless(sys.platform.startswith("linux"), "Requires the Linux POSIX shell")
     def test_download_or_extraction_failure_stops_without_reporting_done(self):
-        for mode in ("wget-fail", "bzip2-fail"):
+        for mode in ("wget-fail", "tar-fail", "truncated-archive"):
             with self.subTest(mode=mode):
                 result = self.run_shell(self.shell_environment(mode))
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -202,10 +216,31 @@ else:
                     json.loads(line)[0]
                     for line in (self.path / "commands.jsonl").read_text().splitlines()
                 ]
-                self.assertEqual(commands, ["wget"] if mode == "wget-fail" else ["wget", "bzip2"])
+                self.assertEqual(commands, ["wget"])
                 self.assertEqual(
-                    (self.data / "rockyou-withcount.txt.bz2").exists(), mode == "bzip2-fail",
+                    (self.data / "rockyou-withcount.txt.tar.gz").exists(), mode != "wget-fail",
                 )
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Requires the Linux POSIX shell")
+    def test_extraction_does_not_overwrite_an_existing_file_or_symbolic_link(self):
+        output = self.data / "rockyou-withcount.txt"
+        for kind in ("file", "symbolic-link"):
+            with self.subTest(kind=kind):
+                if kind == "file":
+                    output.write_bytes(b"keep this existing file")
+                else:
+                    output.symlink_to("missing.txt")
+                result = self.run_shell(self.shell_environment())
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertNotIn("...Done", result.stdout)
+                if kind == "file":
+                    self.assertEqual(output.read_bytes(), b"keep this existing file")
+                else:
+                    self.assertTrue(output.is_symlink())
+                    self.assertEqual(os.readlink(output), "missing.txt")
+                    self.assertFalse((self.data / "missing.txt").exists())
+                self.assertTrue((self.data / "rockyou-withcount.txt.tar.gz").exists())
+                output.unlink()
 
 
 if __name__ == "__main__":
