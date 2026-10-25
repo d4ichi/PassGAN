@@ -65,6 +65,8 @@ python -m pip check
 python -m unittest discover -s tests -v
 ```
 
+Install the dependencies in `requirements-notebooks.txt` to include notebook tests in the command above. These tests are skipped when the notebook dependencies are not installed.
+
 The tests verify all 24 generator tensors and compare outputs for fixed input noise against the saved `.meta` graph. They also cover a batch size of one, output counts, file handling, and invalid inputs. Both graphs run on TensorFlow 2.21.0. A comparison with a TensorFlow 1.13 runtime has not been performed.
 
 The training tests perform real generator and discriminator updates, save and restore model weights and Adam optimizer state, and use `sample.py` to generate strings from a newly trained checkpoint. The artificial dataset is created by the tests; no training-data download is required. These tests check execution and saved artifacts, not convergence or password quality.
@@ -114,7 +116,9 @@ curl.exe -L -o data/train.txt https://github.com/d4ichi/PassGAN/releases/downloa
 python train.py --output-dir output --training-data data/train.txt
 ```
 
-Training retains the original command-line options and output layout, including character dictionaries in `output`, checkpoints in `output/checkpoints`, and preview samples in `output/samples`. The output directory is created if needed. Training data must contain at least one full batch of usable lines. A final line without a newline now keeps its last character; filtering and padding otherwise follow the original behavior.
+Training retains the original command-line options and output layout, including character dictionaries in `output`, checkpoints in `output/checkpoints`, and preview samples in `output/samples`. The output directory is created if needed. Training data must contain at least one full batch of usable lines. Lines longer than `--seq-length` are excluded rather than truncated. A final line without a newline now keeps its last character; filtering and padding otherwise follow the original behavior.
+
+Training preview samples retain padding backticks; sampling removes them.
 
 Checkpoint saving follows `--save-every`; training does not force an additional save at the end. To generate strings from a trained model, use `sample.py` with `--input-dir output` and the saved checkpoint prefix, keeping `--seq-length` and `--layer-dim` consistent with training.
 
