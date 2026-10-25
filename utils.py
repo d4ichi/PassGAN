@@ -89,7 +89,7 @@ def load_dataset(path, max_length, tokenize=False, max_vocab_size=2048):
     
     lines = []
 
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding='utf-8') as f:
         for line in f:
             # Remove a line ending without dropping a final character at EOF.
             line = line.removesuffix('\n')

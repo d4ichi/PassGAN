@@ -1,2 +1,3 @@
-This directory is for storing dataset.
-To generate sample dataset which was used for pre-trained model in this repository, see `bin` directory.
+This directory stores datasets.
+
+To prepare the RockYou training and test files, follow [the dataset preparation instructions](../bin/README.md).

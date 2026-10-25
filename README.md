@@ -116,7 +116,7 @@ curl.exe -L -o data/train.txt https://github.com/d4ichi/PassGAN/releases/downloa
 python train.py --output-dir output --training-data data/train.txt
 ```
 
-Training retains the original command-line options and output layout, including character dictionaries in `output`, checkpoints in `output/checkpoints`, and preview samples in `output/samples`. The output directory is created if needed. Training data must contain at least one full batch of usable lines. Lines longer than `--seq-length` are excluded rather than truncated. A final line without a newline now keeps its last character; filtering and padding otherwise follow the original behavior.
+Training retains the original command-line options and output layout, including character dictionaries in `output`, checkpoints in `output/checkpoints`, and preview samples in `output/samples`. The output directory is created if needed. Training data must be UTF-8, with one password per line, and contain at least one full batch of usable lines. Lines longer than `--seq-length` are excluded rather than truncated. A final line without a newline now keeps its last character; filtering and padding otherwise follow the original behavior.
 
 Training preview samples retain padding backticks; sampling removes them.
 
