@@ -15,7 +15,7 @@ This repository includes:
 
 ## Getting Started
 
-Pretrained sampling has been verified on Windows 11 x64 (CPU) with Python 3.12.14, TensorFlow 2.21.0, and NumPy 2.5.4. Command-line training uses the same environment with the additional dependencies below. CUDA is not required for CPU execution. The Python version is pinned in `.python-version`, and package versions are pinned in `requirements.txt` and `requirements-training.txt`.
+The PowerShell setup below uses Python 3.12.14, TensorFlow 2.21.0, and NumPy 2.5.4 on Windows x64. Command-line training requires the additional dependencies below. CUDA is not required for CPU execution. The Python version is pinned in `.python-version`, and package versions are pinned in `requirements.txt` and `requirements-training.txt`.
 
 Run the following commands from the repository root in PowerShell to set up an isolated environment. Using a virtual environment and [uv](https://docs.astral.sh/uv/guides/install-python/) is optional. uv downloads the pinned Python version, and the virtual environment isolates this project's dependencies from those of other projects.
 
@@ -34,7 +34,7 @@ python -m pip check
 
 Check that the reported Python version matches `.python-version`. Keep the environment active for the commands below. In a new PowerShell session, activate it again with `.\.venv\Scripts\Activate.ps1`.
 
-GPU sampling and training have also been verified in WSL2; see [Verification](#verification). CPU and GPU execution use the same commands and output formats, and TensorFlow automatically uses available GPUs for supported operations. For TensorFlow GPU support on Windows, see the [WSL2 installation guide](https://www.tensorflow.org/install/pip).
+Sampling and training use the same commands and output formats on CPU and GPU. In a GPU-enabled TensorFlow environment, supported operations are automatically assigned to an available GPU. For TensorFlow GPU support on Windows, see the [WSL2 installation guide](https://www.tensorflow.org/install/pip).
 
 ### Generating password samples
 
@@ -71,19 +71,6 @@ The training tests perform real generator and discriminator updates, save and re
 
 The Windows CPU CI workflow uses the same Python version and pinned package versions. See [the inference migration notes](docs/inference-migration.md) and [the training migration notes](docs/training-migration.md) for details about the environment and verification.
 
-Manual GPU checks on October 25, 2026, used [revision `0f621db`](https://github.com/d4ichi/PassGAN/commit/0f621db8b0f0190b79a4c1d16025c3b0a4a1e757) in the `PassGAN-GPU` WSL2 environment: Ubuntu 24.04.5 LTS, an NVIDIA GeForce RTX 3080 (10 GiB), NVIDIA driver 610.88, Python 3.12.14, and TensorFlow 2.21.0.
-
-| Check | Result |
-| --- | --- |
-| Bundled pretrained checkpoint | Generated exactly 1,003 samples on the GPU, including a partial final batch. |
-| Training, saving, and sampling | Trained on 512 artificial lines with `--batch-size 16 --seq-length 10 --layer-dim 128 --critic-iters 1 --iters 100 --save-every 10`, saved 10 checkpoints, and generated 1,003 samples on the GPU from `checkpoint_100.ckpt`. |
-| Saved model state | All 148 saved model and optimizer tensors matched the final session values and contained no NaN or infinity values. |
-| CPU compatibility | Restored the GPU-trained checkpoint in a separate CPU process and generated 257 samples. |
-
-Runtime traces confirmed GPU execution of convolution, matrix multiplication, backpropagation, and Adam updates for both networks. Additional short runs using the standard command-line scripts with their default TensorFlow session settings also succeeded without the tracing wrapper. The bundled pretrained files remained unchanged.
-
-These checks verify short-run execution, checkpoint creation, and sampling. They do not establish convergence, password quality, training performance, or long-run stability. The CI workflow remains CPU-only.
-
 ### Training your own models
 
 Install the additional training dependencies in the active environment.
@@ -102,7 +89,7 @@ pip3 install -r requirements.txt
 
 You can download sample datasets from the releases page or generate a sample RockYou dataset yourself using the scripts in `bin`.
 
-In the original TensorFlow 1.x environment, training a model on a large dataset (100 MB or more) could take several hours on a GTX 1080. This is the original estimate; current CPU and GPU training performance has not been evaluated.
+In the original TensorFlow 1.x environment, training a model on a large dataset (100 MB or more) could take several hours on a GTX 1080. This is an estimate from the original environment.
 
 ```powershell
 # download the rockyou training data
