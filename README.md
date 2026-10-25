@@ -69,7 +69,7 @@ The tests verify all 24 generator tensors and compare outputs for fixed input no
 
 The training tests perform real generator and discriminator updates, save and restore model weights and Adam optimizer state, and use `sample.py` to generate strings from a newly trained checkpoint. The artificial dataset is created by the tests; no training-data download is required. These tests check execution and saved artifacts, not convergence or password quality.
 
-The Windows CPU CI workflow uses the same Python version and pinned package versions. See [the inference migration notes](docs/inference-migration.md) and [the training migration notes](docs/training-migration.md) for details about the environment and verification.
+The Windows CPU CI workflow uses the same Python version and pinned package versions.
 
 ### Jupyter notebooks
 
@@ -82,8 +82,6 @@ python -m notebook
 ```
 
 Open `notebook-sample.ipynb` or `notebook-train.ipynb`, select the Python kernel for this environment, review the parameters in `VirtualArgparse`, and run the cells in order. The training notebook defaults to `output_dir = "pretrained"`; choose a different output directory to keep the bundled model files.
-
-See [the notebook migration notes](docs/notebook-migration.md) for the preserved defaults and input/output differences from the command-line scripts.
 
 ### Training your own models
 
@@ -118,7 +116,7 @@ python train.py --output-dir output --training-data data/train.txt
 
 Training retains the original command-line options and output layout, including character dictionaries in `output`, checkpoints in `output/checkpoints`, and preview samples in `output/samples`. The output directory is created if needed. Training data must contain at least one full batch of usable lines. A final line without a newline now keeps its last character; filtering and padding otherwise follow the original behavior.
 
-Checkpoint saving follows `--save-every`; training does not force an additional save at the end. To generate strings from a trained model, use `sample.py` with `--input-dir output` and the saved checkpoint prefix, keeping `--seq-length` and `--layer-dim` consistent with training. See [the training migration notes](docs/training-migration.md) for the preserved iteration and output details.
+Checkpoint saving follows `--save-every`; training does not force an additional save at the end. To generate strings from a trained model, use `sample.py` with `--input-dir output` and the saved checkpoint prefix, keeping `--seq-length` and `--layer-dim` consistent with training.
 
 
 You are encouraged to train using your own password leaks and datasets. Some great places to find those include:
