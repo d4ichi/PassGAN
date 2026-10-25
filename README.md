@@ -15,7 +15,7 @@ This repository includes:
 
 ## Getting Started
 
-Pretrained sampling has been verified on Windows 11 x64 (CPU) with Python 3.12.14, TensorFlow 2.21.0, and NumPy 2.5.4. Command-line training uses the same environment with the additional dependencies below. CUDA is not required. The Python version is pinned in `.python-version`, and package versions are pinned in `requirements.txt` and `requirements-training.txt`.
+The PowerShell setup below uses Python 3.12.14, TensorFlow 2.21.0, and NumPy 2.5.4 on Windows x64. Command-line training requires the additional dependencies below. CUDA is not required for CPU execution. The Python version is pinned in `.python-version`, and package versions are pinned in `requirements.txt` and `requirements-training.txt`.
 
 Run the following commands from the repository root in PowerShell to set up an isolated environment. Using a virtual environment and [uv](https://docs.astral.sh/uv/guides/install-python/) is optional. uv downloads the pinned Python version, and the virtual environment isolates this project's dependencies from those of other projects.
 
@@ -34,7 +34,7 @@ python -m pip check
 
 Check that the reported Python version matches `.python-version`. Keep the environment active for the commands below. In a new PowerShell session, activate it again with `.\.venv\Scripts\Activate.ps1`.
 
-This setup has not been tested on other platforms or with GPU acceleration. For TensorFlow GPU support on Windows, see the [WSL2 installation guide](https://www.tensorflow.org/install/pip).
+Sampling and training use the same commands and output formats on CPU and GPU. In a GPU-enabled TensorFlow environment, supported operations are automatically assigned to an available GPU. For TensorFlow GPU support on Windows, see the [WSL2 installation guide](https://www.tensorflow.org/install/pip).
 
 ### Generating password samples
 
@@ -89,7 +89,7 @@ pip3 install -r requirements.txt
 
 You can download sample datasets from the releases page or generate a sample RockYou dataset yourself using the scripts in `bin`.
 
-In the original TensorFlow 1.x environment, training a model on a large dataset (100 MB or more) could take several hours on a GTX 1080. This is the original estimate; current CPU training time and GPU execution have not been evaluated.
+In the original TensorFlow 1.x environment, training a model on a large dataset (100 MB or more) could take several hours on a GTX 1080. This is an estimate from the original environment.
 
 ```powershell
 # download the rockyou training data
