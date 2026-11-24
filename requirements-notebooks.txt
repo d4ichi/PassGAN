@@ -76,7 +76,7 @@ rfc3986-validator==0.1.1
 rfc3987-syntax==1.1.0
 rpds-py==2026.9.1
 send2trash==2.1.0
-soupsieve==3.0.4
+soupsieve==4.0
 stack-data==0.6.3
 terminado==0.18.1
 tinycss2==1.5.1
